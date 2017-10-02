@@ -1,0 +1,2 @@
+# Wikipedia-Challenge-Solver
+Objective - Players (one or more) start on the same randomly selected article and must navigate to another pre-selected article (home) only clicking links within the current article. The goal is to arrive at the home article in the fewest number of clicks (articles) or the least time. The single-player Wiki Game, known as Wikirace, Wikispeedia, WikiLadders, WikiClick, or WikiWhack, involves reducing one's previous time or number of clicks.
