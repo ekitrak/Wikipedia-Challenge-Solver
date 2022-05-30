@@ -1,85 +1,124 @@
+from urllib.request import urlopen
+
 from bs4 import BeautifulSoup
 from nltk.corpus import wordnet
-import urllib2
-import re
 
+start = "Reindeer"
+goal = "Flying Saucer"
 satisfiablePercent = .8
-start = "Wombat"
-goalString = "Toilet"
-goal = wordnet.synset("Toilet.n.01")
+wiki = "https://en.wikipedia.org/wiki/"
+next_from_start = ""
+next_from_goal = ""
 
-def nextPage(page, visited):
-	wiki = "https://en.wikipedia.org/wiki/"
-	wiki += page
-	website = urllib2.urlopen(wiki)
-	html = website.read()
-	soup = BeautifulSoup(html, "html.parser")
-	links = soup.findAll('a', href=True)
-	currentBest = ["", -1]
-	for link in links:
-		link = link['href']
-		if (link[:5] == "/wiki" and link[:-3] != ("JPG" or "jpg" or "png") and (link[5:14] != "/Category")
-		and link[6:16] != "Wikipedia:" and link[6:14] != "Special:" and link[6:10] != "File" and
-		link[6:13] != "Portal:" and link[6:15] != "Main_Page" and link[6:10] != "Help"):
-			link = link[6:]
-			if link not in visited and link == goalString:
-				return link
-			if wordnet.synsets(link):
-				if link not in visited:
-					w1 = wordnet.synsets(link)[0]
-					score = w1.wup_similarity(goal)
-					if score >= satisfiablePercent:
-						return link
-					elif score >= currentBest[1]:
-						currentBest[0] = link
-						currentBest[1] = score
-	return currentBest[0]
 
-def bidirectionalWall(nextStart, nextGoal, sV, gV):
-	keepGoing = True
-	if sV:
-		startVisited = sV
-	else:
-		startVisited = [nextStart]
-	if gV:
-		goalVisited = gV
-	else:
-		goalVisited = [nextGoal]
-	if start:
-		if nextStart == goalString:
-			total = len(startVisited)
-			print("You can reach the goal in " + str(total - 1) + " clicks.")
-			print(startVisited)
-			keepGoing = False
-		if (nextStart in goalVisited and keepGoing):
-			i = goalVisited.index(nextStart)
-			goalVisited = goalVisited[:i]
-			goalVisited = goalVisited[::-1]
-			path = startVisited
-			path.extend(goalVisited[:i + 1])
-			total = len(path) - 2
-			print("You can reach the goal in " + str(total) + " clicks.")
-			print(path)
-			keepGoing = False
-		else:
-			nextFromStart = nextPage(nextStart, startVisited)
-			startVisited.append(nextFromStart)
-	if keepGoing:
-		if nextGoal in startVisited:
-			r = startVisited.index(nextGoal)
-			goalVisited = goalVisited[::-1]
-			path = startVisited[:r + 1]
-			path.extend(goalVisited[1:])
-			total = len(path) - 2
-			print("You can reach the goal in " + str(total) + " clicks.")
-			print(path)
-			keepGoing = False
-		else:
-			nextFromGoal = nextPage(nextGoal, goalVisited)
-			goalVisited.append(nextFromGoal)
-	if keepGoing:
-		print(nextFromStart)
-		print(nextFromGoal)
-		bidirectionalWall(nextFromStart, nextFromGoal, startVisited, goalVisited)
+def next_page(page, visited):
+    url = wiki
+    url += page
+    website = urlopen(url)
+    html = website.read()
+    soup = BeautifulSoup(html, "html.parser")
+    links = soup.findAll('a', href=True)
+    current_best = ["", -1]
+    for link in links:
+        link = link['href']
+        if not (link[:5] != "/wiki" or link[:-3] == ("JPG" or "jpg" or "png") or (
+                len(link) >= 14 and link[5:14] == "/Category") or (len(link) >= 16 and link[6:16] == "Wikipedia:") or (
+                        len(link) >= 14 and link[6:14] == "Special:") or (len(link) >= 10 and link[6:10] == "File") or (
+                        len(link) >= 13 and link[6:13] == "Portal:") or (
+                        len(link) >= 15 and link[6:15] == "Main_Page") or (
+                        len(link) >= 10 and link[6:10] == "Help") or (
+                        len(link) > 16 and link[-16] == "(disambiguation)")):
+            link = link[6:]
+            if link not in visited and link == goal:
+                return link
+            if wordnet.synsets(link) and link not in visited:
+                w1 = wordnet.synsets(link)[0]
+                score = w1.wup_similarity(goal_synset)
+                if score >= satisfiablePercent:
+                    return link
+                elif score >= current_best[1]:
+                    current_best[0] = link
+                    current_best[1] = score
+    return current_best[0]
 
-bidirectionalWall(start, goalString, [], [])
+
+def bidirectional_wall(next_start, next_goal, s_v, g_v):
+    global next_from_goal, next_from_start
+    keep_going = True
+    if s_v:
+        start_visited = s_v
+    else:
+        start_visited = [next_start]
+    if g_v:
+        goal_visited = g_v
+    else:
+        goal_visited = [next_goal]
+    if start:
+        if next_start == goal:
+            total = len(start_visited)
+            print("You can reach the goal in " + str(total - 1) + " clicks.")
+            print(start_visited)
+            print_wiki_links(start_visited)
+            keep_going = False
+        if next_start in goal_visited and keep_going:
+            i = goal_visited.index(next_start)
+            goal_visited = goal_visited[:i]
+            goal_visited = goal_visited[::-1]
+            path = start_visited
+            path.extend(goal_visited[:i + 1])
+            total = len(path) - 2
+            print("You can reach the goal in " + str(total) + " clicks.")
+            print(path)
+            print_wiki_links(path)
+            keep_going = False
+        else:
+            next_from_start = next_page(next_start, start_visited)
+            start_visited.append(next_from_start)
+    if keep_going:
+        if next_goal in start_visited:
+            r = start_visited.index(next_goal)
+            goal_visited = goal_visited[::-1]
+            path = start_visited[:r + 1]
+            path.extend(goal_visited[1:])
+            total = len(path) - 2
+            print("You can reach the goal in " + str(total) + " clicks.")
+            print(path)
+            print_wiki_links(path)
+            keep_going = False
+        else:
+            next_from_goal = next_page(next_goal, goal_visited)
+            goal_visited.append(next_from_goal)
+    if keep_going:
+        if next_from_start != "":
+            print(next_from_start)
+        if next_from_goal != "":
+            print(next_from_goal)
+        bidirectional_wall(next_from_start, next_from_goal,
+                           start_visited, goal_visited)
+
+
+def print_wiki_links(visited_strings):
+    for item in visited_strings:
+        print(wiki + item)
+
+
+def multiple_word_wiki_link(target_words):
+    target_parts = target_words.split(" ")
+    is_first = True
+    result = ""
+    sep = ""
+    for part in target_parts:
+        if is_first:
+            is_first = False
+        else:
+            sep = "_"
+            part = part.lower()
+        result = result + sep + part
+    return result
+
+
+if ' ' in goal:
+    goal = multiple_word_wiki_link(goal)
+print("goal_string: " + goal)
+goal_synset = wordnet.synset(goal + ".n.01")
+bidirectional_wall(start, goal, [], [])
