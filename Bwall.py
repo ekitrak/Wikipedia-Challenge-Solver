@@ -5,7 +5,7 @@ from nltk.corpus import wordnet
 
 start = "Reindeer"
 goal = "Flying Saucer"
-satisfiablePercent = .8
+satisfiablePercent = .75
 wiki = "https://en.wikipedia.org/wiki/"
 next_from_start = ""
 next_from_goal = ""
@@ -22,7 +22,7 @@ def next_page(page, visited):
     for link in links:
         link = link['href']
         if not (link[:5] != "/wiki" or link[:-3] == ("JPG" or "jpg" or "png") or (
-                len(link) >= 14 and link[5:14] == "/Category") or (len(link) >= 16 and link[6:16] == "Wikipedia:") or (
+                len(link) >= 14 and link[6:14] == "Category") or (len(link) >= 16 and link[6:16] == "Wikipedia:") or (
                         len(link) >= 14 and link[6:14] == "Special:") or (len(link) >= 10 and link[6:10] == "File") or (
                         len(link) >= 13 and link[6:13] == "Portal:") or (
                         len(link) >= 15 and link[6:15] == "Main_Page") or (
@@ -31,19 +31,20 @@ def next_page(page, visited):
             link = link[6:]
             if link not in visited and link == goal:
                 return link
-            if wordnet.synsets(link) and link not in visited:
-                w1 = wordnet.synsets(link)[0]
+            synsets = wordnet.synsets(link)
+            if synsets and link not in visited:
+                w1 = synsets[0]
                 score = w1.wup_similarity(goal_synset)
                 if score >= satisfiablePercent:
                     return link
-                elif score >= current_best[1]:
+                elif score > current_best[1]:
                     current_best[0] = link
                     current_best[1] = score
     return current_best[0]
 
 
 def bidirectional_wall(next_start, next_goal, s_v, g_v):
-    global next_from_goal, next_from_start
+    global next_from_goal, next_from_start, satisfiablePercent
     keep_going = True
     if s_v:
         start_visited = s_v
@@ -73,6 +74,16 @@ def bidirectional_wall(next_start, next_goal, s_v, g_v):
             keep_going = False
         else:
             next_from_start = next_page(next_start, start_visited)
+            retries = 5
+            while next_from_start == "" and retries > 0:
+                satisfiablePercent -= 0.08
+                next_from_start = next_page(next_start, start_visited)
+                retries -= 1
+                print(
+                    "Retrying with next_start: " + str(next_start) + ", start_visited: " + str(start_visited) +
+                    ", satisfiablePercent: " + str(satisfiablePercent))
+            if next_from_start == "":
+                raise Exception("Unable to find a path")
             start_visited.append(next_from_start)
     if keep_going:
         if next_goal in start_visited:
@@ -90,9 +101,9 @@ def bidirectional_wall(next_start, next_goal, s_v, g_v):
             goal_visited.append(next_from_goal)
     if keep_going:
         if next_from_start != "":
-            print(next_from_start)
+            print("next_from_start: " + next_from_start)
         if next_from_goal != "":
-            print(next_from_goal)
+            print("next_from_goal: " + next_from_goal)
         bidirectional_wall(next_from_start, next_from_goal,
                            start_visited, goal_visited)
 
@@ -119,6 +130,9 @@ def multiple_word_wiki_link(target_words):
 
 if ' ' in goal:
     goal = multiple_word_wiki_link(goal)
+if ' ' in start:
+    start = multiple_word_wiki_link(start)
+
 print("goal_string: " + goal)
 goal_synset = wordnet.synset(goal + ".n.01")
 bidirectional_wall(start, goal, [], [])
